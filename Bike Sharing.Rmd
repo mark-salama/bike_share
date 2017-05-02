@@ -1,0 +1,379 @@
+---
+title: "Bike Sharing Analysis"
+output: html_notebook
+---
+
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+library(tidyr)
+library(vcdExtra) # Yamaguchi87
+library(dplyr) # keep after vcdExtra to avoid summarise conflict
+library(knitr)
+library(viridis)
+library(purrr)
+library(pgmm) # wine
+library(heatmaply)
+library(tibble)
+library(RColorBrewer)
+```
+
+"Average Age by Starting Ride Location"
+
+```{r}
+theme_heat <- theme_classic(11) +
+    theme(axis.line = element_blank(),
+          axis.ticks = element_blank())
+```
+
+```{r}
+nyc_age_neigh <- read.csv("nyc_age_neigh.csv",head=TRUE,sep=",")
+```
+
+```{r}
+theme_dotplot <- theme_bw(13) +
+    theme(title = element_text(size = rel(.63)),
+          axis.text.y = element_text(size = rel(.5)),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_text(size = 7),
+          panel.grid.major.x = element_line(size = 0.4),
+          panel.grid.major.y = element_line(size = 0.2),
+          panel.grid.minor.x = element_blank())
+```
+
+geom_vline(aes(xintercept = 36.75),color = "red") + 
+geom_vline(aes(xintercept = 39.05),color = "blue")
+
+```{r, fig.height=2.91, fig.width = 1.8}
+ggplot(nyc_age_neigh, aes(x = avg_age, y = reorder(start_neigh, avg_age))) + geom_point() + 
+    scale_y_discrete(breaks = nyc_age_neigh$start_neigh, labels = nyc_age_neigh$start_neigh) +
+    theme_dotplot + 
+    theme(legend.title = element_blank()) +
+    theme(legend.text.align = 0) + xlim(30,45) + xlab('Average Age') + ylab('') + 
+    ggtitle("Average Age by Starting Location")
+```
+
+
+```{r}
+neigh_count <- read.csv("neigh_count.csv",head=TRUE,sep=",")
+```
+
+
+```{r, fig.height=2.91, fig.width = 1.8}
+ggplot(neigh_count, aes(x = rides, y = reorder(start_neigh, rides))) + geom_point() + 
+    scale_y_discrete(breaks = neigh_count$start_neigh, labels = neigh_count$start_neigh) +
+    theme_dotplot + 
+    theme(legend.title = element_blank()) +
+    theme(legend.text.align = 0) + xlab('Rides (Thousands)') + ylab('') + xlim(0,1250) +
+    ggtitle("Number of Rides by Starting Location")
+```
+
+
+"Heatmaps"
+
+NYC
+
+Full Year
+
+```{r}
+nyc_16_week_quarterhour <- read.csv("nyc_16_day_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+nyc_16_week_quarterhour$monthday <- factor(nyc_16_week_quarterhour$monthday)
+nyc_16_week_quarterhour$hourfifteen <- factor(nyc_16_week_quarterhour$hourfifteen)
+nyc_16_week_quarterhour$month <- as.character(nyc_16_week_quarterhour$month)
+nyc_16_week_quarterhour$month <- factor(nyc_16_week_quarterhour$month, levels=unique(nyc_16_week_quarterhour$month))
+```
+
+```{r}
+ggplot(nyc_16_week_quarterhour, aes(y = hourfifteen, x = monthday, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_x_discrete("Day of Year", breaks = levels(nyc_16_week_quarterhour$monthday)[c(T, rep(F, 26),T,rep(F,28),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,29),T,rep(F,30))], labels = levels(nyc_16_week_quarterhour$month)) + scale_y_discrete('Time of Day', breaks = levels(nyc_16_week_quarterhour$hourfifteen)[c(T, rep(F, 3))], labels = levels(nyc_16_week_quarterhour$hourfifteen2)[c(T, rep(F, 3))]) + ggtitle("NYC Bike Sharing - Citibike: Full Year 2016")
+```
+
+Workweek
+
+```{r}
+nyc_16_week_quarterhour <- read.csv("nyc_16_ww_day_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+nyc_16_week_quarterhour$monthday <- factor(nyc_16_week_quarterhour$monthday)
+nyc_16_week_quarterhour$hourfifteen <- factor(nyc_16_week_quarterhour$hourfifteen)
+nyc_16_week_quarterhour$month <- as.character(nyc_16_week_quarterhour$month)
+nyc_16_week_quarterhour$month <- factor(nyc_16_week_quarterhour$month, levels=unique(nyc_16_week_quarterhour$month))
+```
+
+```{r}
+ggplot(nyc_16_week_quarterhour, aes(y = hourfifteen, x = monthday, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_x_discrete("Day of Year", breaks = levels(nyc_16_week_quarterhour$monthday)[c(T, rep(F, 16),T,rep(F,19),T,rep(F,21),T,rep(F,20),T,rep(F,20),T,rep(F,21),T,rep(F,19),T,rep(F,22),T,rep(F,20),T,rep(F,19),T,rep(F,18),T,rep(F,22))], labels = levels(nyc_16_week_quarterhour$month)) + scale_y_discrete('Time of Day', breaks = levels(nyc_16_week_quarterhour$hourfifteen)[c(T, rep(F, 3))], labels = levels(nyc_16_week_quarterhour$hourfifteen2)[c(T, rep(F, 3))]) + ggtitle("NYC Bike Sharing - Citibike: Working Days of 2016")
+```
+
+Age and Monthday
+
+```{r}
+nyc_16_age_month <- read.csv("nyc_16_age_monthday.csv",head=TRUE,sep=",")
+```
+
+```{r}
+nyc_16_age_month$age <- factor(nyc_16_age_month$age)
+nyc_16_age_month$monthday <- factor(nyc_16_age_month$monthday)
+nyc_16_age_month$month <- as.character(nyc_16_age_month$month)
+nyc_16_age_month$month <- factor(nyc_16_age_month$month, levels=unique(nyc_16_age_month$month))
+```
+
+```{r}
+ggplot(nyc_16_age_month, aes(x = monthday, y = age, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_y_discrete(breaks = levels(nyc_16_age_month$age)[c(T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4))]) + scale_x_discrete('Day of Year', breaks = levels(nyc_16_age_month$monthday)[c(T, rep(F, 16),T,rep(F,19),T,rep(F,21),T,rep(F,20),T,rep(F,20),T,rep(F,21),T,rep(F,19),T,rep(F,22),T,rep(F,20),T,rep(F,19),T,rep(F,18),T,rep(F,22))], labels = levels(nyc_16_age_month$month)) + ggtitle("Citibike: Working Days of 2016 - Age and Day of Year") + ylab('Age')
+```
+
+Age and Time of Day
+
+```{r}
+nyc_16_age_time <- read.csv("nyc_16_age_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+nyc_16_age_time$age <- factor(nyc_16_age_time$age)
+nyc_16_age_time$hourfifteen <- factor(nyc_16_age_time$hourfifteen)
+```
+
+```{r}
+ggplot(nyc_16_age_time, aes(x = hourfifteen, y = age, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_y_discrete('Age', breaks = levels(nyc_16_age_time$age)[c(T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4))]) + scale_x_discrete('Time of Day', breaks = levels(nyc_16_age_time$hourfifteen)[c(T, rep(F, 7))], labels = levels(nyc_16_age_time$hourfifteen2)[c(T, rep(F, 7))]) + ggtitle("Citibike: Working Days of 2016 - Age and Time of Day")
+```
+
+
+
+Chicago
+
+Full Year
+
+```{r}
+chi_16_week_quarterhour <- read.csv("chi_16_day_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+chi_16_week_quarterhour$monthday <- factor(chi_16_week_quarterhour$monthday)
+chi_16_week_quarterhour$hourfifteen <- factor(chi_16_week_quarterhour$hourfifteen)
+chi_16_week_quarterhour$month <- as.character(chi_16_week_quarterhour$month)
+chi_16_week_quarterhour$month <- factor(chi_16_week_quarterhour$month, levels=unique(chi_16_week_quarterhour$month))
+```
+
+```{r}
+ggplot(chi_16_week_quarterhour, aes(y = hourfifteen, x = monthday, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_x_discrete("Day of Year", breaks = levels(chi_16_week_quarterhour$monthday)[c(T, rep(F, 30),T,rep(F,28),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,29),T,rep(F,30))], labels = levels(chi_16_week_quarterhour$month)) + scale_y_discrete('Time of Day', breaks = levels(chi_16_week_quarterhour$hourfifteen)[c(T, rep(F, 3))], labels = levels(chi_16_week_quarterhour$hourfifteen2)[c(T, rep(F, 3))]) + ggtitle("Chicago Bike Sharing - Divvy: Full Year 2016")
+```
+
+Workweek
+
+```{r}
+chi_16_week_quarterhour <- read.csv("chi_16_ww_day_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+chi_16_week_quarterhour$monthday <- factor(chi_16_week_quarterhour$monthday)
+chi_16_week_quarterhour$hourfifteen <- factor(chi_16_week_quarterhour$hourfifteen)
+chi_16_week_quarterhour$month <- as.character(chi_16_week_quarterhour$month)
+chi_16_week_quarterhour$month <- factor(chi_16_week_quarterhour$month, levels=unique(chi_16_week_quarterhour$month))
+```
+
+```{r}
+ggplot(chi_16_week_quarterhour, aes(y = hourfifteen, x = monthday, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_x_discrete("Day of Year", breaks = levels(chi_16_week_quarterhour$monthday)[c(T, rep(F, 18),T,rep(F,19),T,rep(F,21),T,rep(F,20),T,rep(F,20),T,rep(F,21),T,rep(F,19),T,rep(F,22),T,rep(F,20),T,rep(F,19),T,rep(F,18),T,rep(F,22))], labels = levels(chi_16_week_quarterhour$month)) + scale_y_discrete('Time of Day', breaks = levels(chi_16_week_quarterhour$hourfifteen)[c(T, rep(F, 3))], labels = levels(chi_16_week_quarterhour$hourfifteen2)[c(T, rep(F, 3))]) + ggtitle("Chicago Bike Sharing - Divvy: Working Days of 2016")
+```
+
+Age and Monthday
+
+```{r}
+chi_16_age_month <- read.csv("chi_16_age_monthday.csv",head=TRUE,sep=",")
+```
+
+```{r}
+chi_16_age_month$age <- factor(chi_16_age_month$age)
+chi_16_age_month$monthday <- factor(chi_16_age_month$monthday)
+chi_16_age_month$month <- as.character(chi_16_age_month$month)
+chi_16_age_month$month <- factor(chi_16_age_month$month, levels=unique(chi_16_age_month$month))
+```
+
+```{r}
+ggplot(chi_16_age_month, aes(x = monthday, y = age, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_y_discrete(breaks = levels(chi_16_age_month$age)[c(T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4))]) + scale_x_discrete('Day of Year',breaks = levels(chi_16_age_month$monthday)[c(T, rep(F, 18),T,rep(F,19),T,rep(F,21),T,rep(F,20),T,rep(F,20),T,rep(F,21),T,rep(F,19),T,rep(F,22),T,rep(F,20),T,rep(F,19),T,rep(F,18),T,rep(F,22))], labels = levels(chi_16_age_month$month)) + ggtitle("Divvy: Working Days of 2016 - Age and Day of Year") + xlab('Time of Day') + ylab('Age')
+```
+
+Age and Time of Day
+
+```{r}
+chi_16_age_time <- read.csv("chi_16_age_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+chi_16_age_time$age <- factor(chi_16_age_time$age)
+chi_16_age_time$hourfifteen <- factor(chi_16_age_time$hourfifteen)
+```
+
+```{r}
+ggplot(chi_16_age_time, aes(x = hourfifteen, y = age, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_y_discrete('Age', breaks = levels(chi_16_age_time$age)[c(T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4),T,rep(F, 4))]) + scale_x_discrete('Time of Day', breaks = levels(chi_16_age_time$hourfifteen)[c(T, rep(F, 7))], labels = levels(chi_16_age_time$hourfifteen2)[c(T, rep(F, 7))]) + ggtitle("Divvy: Working Days of 2016 - Age and Time of Day")
+```
+
+
+DC
+
+Full Year
+
+```{r}
+dc_16_week_quarterhour <- read.csv("dc_16_day_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+dc_16_week_quarterhour$monthday <- factor(dc_16_week_quarterhour$monthday)
+dc_16_week_quarterhour$hourfifteen <- factor(dc_16_week_quarterhour$hourfifteen)
+dc_16_week_quarterhour$month <- as.character(dc_16_week_quarterhour$month)
+dc_16_week_quarterhour$month <- factor(dc_16_week_quarterhour$month, levels=unique(dc_16_week_quarterhour$month))
+```
+
+```{r}
+ggplot(dc_16_week_quarterhour, aes(y = hourfifteen, x = monthday, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_x_discrete("Day of Year", breaks = levels(dc_16_week_quarterhour$monthday)[c(T, rep(F, 24),T,rep(F,28),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,30),T,rep(F,29),T,rep(F,30),T,rep(F,29),T,rep(F,30))], labels = levels(dc_16_week_quarterhour$month)) + scale_y_discrete('Time of Day', breaks = levels(dc_16_week_quarterhour$hourfifteen)[c(T, rep(F, 3))], labels = levels(dc_16_week_quarterhour$hourfifteen2)[c(T, rep(F, 3))]) + ggtitle("DC Bike Sharing - Capital: Full Year 2016")
+```
+
+Workweek
+
+```{r}
+dc_16_week_quarterhour <- read.csv("dc_16_ww_day_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+dc_16_week_quarterhour$monthday <- factor(dc_16_week_quarterhour$monthday)
+dc_16_week_quarterhour$hourfifteen <- factor(dc_16_week_quarterhour$hourfifteen)
+dc_16_week_quarterhour$month <- as.character(dc_16_week_quarterhour$month)
+dc_16_week_quarterhour$month <- factor(dc_16_week_quarterhour$month, levels=unique(dc_16_week_quarterhour$month))
+```
+
+```{r}
+ggplot(dc_16_week_quarterhour, aes(y = hourfifteen, x = monthday, fill = count)) + scale_fill_viridis(name = "# of Rides")  + geom_tile() + scale_x_discrete("Day of Year", breaks = levels(dc_16_week_quarterhour$monthday)[c(T, rep(F, 14),T,rep(F,19),T,rep(F,21),T,rep(F,20),T,rep(F,20),T,rep(F,21),T,rep(F,19),T,rep(F,22),T,rep(F,20),T,rep(F,19),T,rep(F,18),T,rep(F,22))], labels = levels(dc_16_week_quarterhour$month)) + scale_y_discrete('Time of Day', breaks = levels(dc_16_week_quarterhour$hourfifteen)[c(T, rep(F, 3))], labels = levels(dc_16_week_quarterhour$hourfifteen2)[c(T, rep(F, 3))]) + ggtitle("DC Bike Sharing - Capital: Working Days of 2016")
+```
+
+Time Distributions
+
+```{r}
+all_time<- read.csv("all_time.csv",head=TRUE,sep=",")
+```
+
+```{r}
+all_time$time <- as.POSIXct(all_time$time, format="%H:%M:%S")
+```
+
+```{r}
+ggplot(all_time, aes(time, color = City)) + geom_density(size=.6) + ggtitle('Bike Sharing - Workweek Time Distribution ') + theme_dens + ylab('') + scale_x_datetime('Time of Day', date_labels ="%H:%M")
+```
+
+Saturday
+
+```{r}
+sat_all<- read.csv("sat_all.csv",head=TRUE,sep=",")
+```
+
+```{r}
+sat_all$time <- as.POSIXct(sat_all$time, format="%Y-%m-%d %H:%M:%S")
+```
+
+```{r}
+ggplot(sat_all, aes(time, color = City)) + geom_density(size=.6) + ggtitle('Bike Sharing - Saturday through Sunday Usage Distribution ') + theme_dens + ylab('') + scale_x_datetime('Time of Day', date_labels ="%H:%M")
+```
+
+```{r}
+sat_late<- read.csv("sat_late.csv",head=TRUE,sep=",")
+```
+
+```{r}
+sat_late$time <- as.POSIXct(sat_late$time, format="%Y-%m-%d %H:%M:%S")
+```
+
+```{r}
+ggplot(sat_late, aes(time, color = City)) + geom_density(size=.6) + ggtitle('Bike Sharing - Early Sunday Mornings Usage Distribution ') + theme_dens + ylab('') + scale_x_datetime('Time of Day', date_labels ="%H:%M")
+```
+
+
+Age
+
+
+```{r}
+nyc_chi_age<- read.csv("nyc_chi_age.csv",head=TRUE,sep=",")
+```
+
+```{r}
+theme_dens <- theme_classic(13) +
+    theme(title = element_text(size = rel(1)),
+          axis.ticks.y = element_blank(),
+          axis.title.x = element_text(size = 10),
+          axis.text.y = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.major.y = element_blank())
+```
+
+```{r}
+ggplot(nyc_chi_age, aes(age, color = City)) + geom_density(adjust=2, size = .7) + xlim(0,100) + xlab('Age') + ggtitle('NYC and Chicago Bike Sharing Age Distribution') + theme_dens + ylab('')
+```
+
+Age Averages
+
+```{r}
+age_table<- read.csv("age_table.csv",head=TRUE,sep=",")
+```
+
+```{r}
+theme_bar <- theme_classic(13) +
+    theme(title = element_text(size = rel(1)),
+          axis.title.x = element_text(size = 10),
+          panel.grid.major.y = element_blank(),
+          panel.grid.major.x = element_blank())
+```
+
+```{r}
+ggplot(age_table, aes(x=Type, y=Value, fill=City)) + geom_bar(stat='identity', position='dodge', width=rel(.65)) + xlab('') + ggtitle('NYC and Chicago Bike Sharing Average Age') + ylab('') +theme_bar
+
+```
+
+Destination Neighborhood Analysis
+
+```{r}
+williamsburg <- read.csv("nyc_neigh_neigh.csv",head=TRUE,sep=",")
+```
+
+```{r}
+theme_bar2 <- theme_classic(13) +
+    theme(title = element_text(size = rel(1)),
+          axis.title.x = element_text(size = 10),
+          axis.title.y = element_text(size = 10),
+          panel.grid.major.y = element_blank(),
+          panel.grid.major.x = element_blank(),
+          axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+ggplot(williamsburg, aes(x=reorder(end_neigh, -rides), y=rides)) + geom_bar(stat='identity', width=rel(.65)) + xlab('') + ggtitle('Ending Neighborhood of Rides Starting in Williamsburg') + ylab('Rides in Thousands') + theme_bar2
+
+```
+
+Destination Neighborhood Analysis
+
+```{r}
+ev <- read.csv("east_village.csv",head=TRUE,sep=",")
+```
+
+```{r}
+ggplot(ev, aes(x=reorder(end_neigh, -rides), y=rides)) + geom_bar(stat='identity', width=rel(.65)) + xlab('') + ggtitle('Ending Neighborhood of Rides Starting in East Village') + ylab('Rides in Thousands') + theme_bar2
+```
+
+
+```{r}
+uws <- read.csv("uws.csv",head=TRUE,sep=",")
+```
+
+```{r}
+ggplot(uws, aes(x=reorder(end_neigh, -rides), y=rides)) + geom_bar(stat='identity', width=rel(.65)) + xlab('') + ggtitle('Ending Neighborhood of Rides Starting in Upper West Side') + ylab('Rides in Thousands') + theme_bar2
+```
+
+
+
+```{r}
+lic <- read.csv("lic.csv",head=TRUE,sep=",")
+```
+
+```{r}
+ggplot(lic, aes(x=reorder(end_neigh, -rides), y=rides)) + geom_bar(stat='identity', width=rel(.65)) + xlab('') + ggtitle('Ending Neighborhood of Rides Starting in Long Island City') + ylab('Rides in Thousands') + theme_bar2
+```
